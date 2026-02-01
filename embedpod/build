@@ -1,0 +1,57 @@
+#!/bin/bash
+set -e
+
+# --- 0. CONFIGURATION (Update these) ---
+DO_REGISTRY="registry.digitalocean.com/imgs"
+IMAGE_NAME="embedpod"
+RUNPOD_API_KEY="rpa_MBCJBASY0LVC12R4YR530211HE1QT73INLXTKG2W1gfnxv"
+RUNPOD_TEMPLATE_ID="z7yjrnbnmx"
+RUNPOD_ENDPOINT_ID=""
+
+# --- 1. SEMANTIC VERSIONING ---
+VERSION=$(cat VERSION)
+IFS='.' read -r major minor patch <<< "$VERSION"
+NEW_PATCH=$((patch + 1))
+NEW_VERSION="$major.$minor.$NEW_PATCH"
+FULL_IMAGE="$DO_REGISTRY/$IMAGE_NAME:$NEW_VERSION"
+
+echo "--- [Shinobi] Starting Sovereign Build v$NEW_VERSION ---"
+
+# --- 2. THE BAKE (ONNX Export) ---
+if [ ! -d "./model_artifacts" ]; then
+    echo "[Shinobi] Baking model artifacts..."
+    python3 -m venv venv_bake
+    source venv_bake/bin/activate
+    pip install -q --upgrade pip
+    pip install -q "optimum[exporters,onnxruntime]"
+    optimum-cli export onnx --model nomic-ai/nomic-embed-text-v1.5 --task feature-extraction --optimize O2 model_artifacts/
+    deactivate && rm -rf venv_bake
+fi
+
+# --- 3. THE BUILD (Multi-Stage Docker) ---
+echo "[Shinobi] Compiling Sovereign Container..."
+docker build --platform linux/amd64 -t $IMAGE_NAME:$NEW_VERSION .
+
+# --- 4. THE PUSH (DigitalOcean) ---
+echo "[Shinobi] Updating DigitalOcean Registry..."
+docker tag $IMAGE_NAME:$NEW_VERSION $FULL_IMAGE
+docker push $FULL_IMAGE
+
+# --- 5. THE SYNC (RunPod API) ---
+#echo "[Shinobi] Updating RunPod Template..."
+#curl --request PATCH \
+#     --url "https://api.runpod.io/v1/templates/$RUNPOD_TEMPLATE_ID" \
+#     --header "Authorization: Bearer $RUNPOD_API_KEY" \
+#     --header "Content-Type: application/json" \
+#     --data "{\"imageName\": \"$FULL_IMAGE\"}"
+
+#echo "[Shinobi] Triggering Rolling Release on Endpoint..."
+# This GraphQL mutation forces the endpoint to pull the latest template config
+#curl --request POST \
+#     --url "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
+#     --header "Content-Type: application/json" \
+#     --data "{\"query\": \"mutation { saveEndpoint(input: { id: \\\"$RUNPOD_ENDPOINT_ID\\\", templateId: \\\"$RUNPOD_TEMPLATE_ID\\\" }) { id } }\"}"
+
+# --- 6. FINALIZE ---
+echo "$NEW_VERSION" > VERSION
+echo "--- [Shinobi] v$NEW_VERSION is now active on RunPod ---"

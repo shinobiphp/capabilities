@@ -1,0 +1,7 @@
+{
+    "input": {
+        "text": "In the silence, simulate the most efficient path.",
+        "task": "search_query",
+        "dimensionality": 256
+    }
+}

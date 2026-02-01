@@ -1,0 +1,21 @@
+{
+  "id": "shinobi.ops.cmds.buildEmbedPod",
+  "name": "Nomic V1.5 Sovereign Embedder",
+  "version": "1.0.0",
+  "philosophy": "Sovereign-Execution",
+  "performance_target": {
+    "cold_start_ms": 2000,
+    "warm_inference_ms": 50
+  },
+  "interface": {
+    "input": {
+      "text": "string|array",
+      "task": "enum[search_query, search_document, classification, clustering]",
+      "dimensionality": "int(64..768)"
+    },
+    "output": {
+      "embeddings": "float[][]",
+      "model": "nomic-embed-text-v1.5"
+    }
+  }
+}

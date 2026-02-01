@@ -1,0 +1,31 @@
+# === Shinobi Master Ignore ===
+
+# --- Python / Environment ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+build/
+dist/
+
+# --- Shinobi Specifics ---
+# Never commit the model DNA (we pull it via Docker/Script)
+capabilities/embedpod/model_artifacts/
+# No local test data in the repo
+capabilities/embedpod/test_input.json
+
+# --- Docker / OS ---
+.dockerignore
+# Ignore the actual local images if exported as tar
+*.tar
+# MacOS/Linux junk
+.DS_Store
+.idea/
+.vscode/
+
+# --- Logs ---
+*.log
+pip-log.txt
