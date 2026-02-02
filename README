@@ -1,0 +1,7 @@
+# Capabilities
+
+This folder contains all self-contained container/service capabilities. 
+A capability implements a specific business or AI function that can be used standalone or orchestrated via Shinobi.
+
+## Current capabilities:
+- **embedpod:** High-performance embedding generation (CPU & GPU ready).

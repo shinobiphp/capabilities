@@ -1,6 +1,9 @@
 # === Shinobi Master Ignore ===
 
 # --- Python / Environment ---
+**/README2
+*/README2
+REAADME2
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,9 +16,10 @@ dist/
 
 # --- Shinobi Specifics ---
 # Never commit the model DNA (we pull it via Docker/Script)
-capabilities/embedpod/model_artifacts/
+embedpod/model_artifacts/
+embedpod/models/
 # No local test data in the repo
-capabilities/embedpod/test_input.json
+embedpod/test_input.json
 
 # --- Docker / OS ---
 .dockerignore

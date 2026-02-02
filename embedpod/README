@@ -1,0 +1,77 @@
+# EmbedPod Quickstart
+
+EmbedPod is the Shinobi embedding container. You can run it on CPU or GPU, locally or on Runpod Serverless.
+
+1. Clone repo
+
+cd to wherever you want it and run:
+
+git clone <repo-url> capabilities
+cd capabilities/embedpod
+
+2. Get models
+
+Create the models folder:
+
+mkdir -p models
+
+Download the required files:
+
+wget <URL_TO_MODEL_Q4> -O models/model_q4.onnx
+wget <URL_TO_TOKENIZER> -O models/tokenizer.json
+
+Check the files:
+
+ls -lh models/
+
+Note: models/ is large, do not commit. Add models/ to .gitignore.
+
+3. Build Docker images
+
+## For CPU
+
+./deploy_cpu.sh
+
+CPU image is smaller and portable.
+
+## For GPU
+
+./deploy_gpu.sh
+
+GPU image requires NVIDIA GPU + docker NVIDIA runtime.
+
+
+4. Run a test
+
+time docker run --rm -v "$(pwd)/test_input.json":/app/test_input.json:ro embedpod:v1.1.0 python3 -u handler.py /app/test_input.json
+
+You should see JSON embeddings output. Local load times are usually <2s for startup + embedding.
+
+5. Using Runpod
+
+# Use EmbedPod in Runpod Serverless
+
+## Create a Template
+
+- Go to your Runpod dashboard → Templates → Create Template.
+- Choose Docker.
+- Set the image to your Docker image tag (CPU or GPU).
+- Set the default command to: python3 -u handler.py
+
+## Create a Serverless Instance
+
+- Go to Serverless → Create Instance.
+- Select the template you just made.
+- Attach any environment variables if needed.
+- Upload your test_input.json or configure input via Runpod API.
+
+## Invoke via Runpod API:
+
+- Use curl or your preferred HTTP client to POST input JSON.
+- The container will return embeddings JSON.
+
+# Tips:
+
+- GPU instance drastically reduces runtime for large batch embeddings.
+- Keep models/ local for testing; in Runpod, you can bake them into the image or pull from cloud storage at startup.
+- For debugging, you can run CPU or GPU images locally first.
