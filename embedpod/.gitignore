@@ -17,10 +17,13 @@ dist/
 # --- Shinobi Specifics ---
 # Never commit the model DNA (we pull it via Docker/Script)
 **/.git
-embedpod/model_artifacts/
-embedpod/models/
+model_artifacts/*
+models/*
+model_artifacts
+models
+
 # No local test data in the repo
-embedpod/test_input.json
+test_input.json
 
 # --- Docker / OS ---
 .dockerignore
