@@ -1,70 +1,77 @@
-import runpod
-import onnxruntime as ort
-from transformers import AutoTokenizer
-import numpy as np
+#!/usr/bin/env python3
 import os
+import sys
+import json
+import time
+import numpy as np
+from tokenizers import Tokenizer
+import onnxruntime as ort
 
-MODEL_PATH = "/app/model_artifacts/onnx/model.onnx"
-TOKENIZER_PATH = "/app/model_artifacts"
+# -----------------------------
+# Config
+# -----------------------------
+MODEL_DIR = "/app/model"
+MODEL_FILE = os.path.join(MODEL_DIR, "model_q4.onnx")
+TOKENIZER_FILE = os.path.join(MODEL_DIR, "tokenizer.json")
 
-print("[D.R.A.W.N.] Initializing embedding runtime")
+# Use GPU if available and ONNXRuntime built with CUDA, else CPU
+EP = ["CUDAExecutionProvider"] if "gpu" in sys.argv[0].lower() else ["CPUExecutionProvider"]
 
-# Tokenizer (required for Nomic custom layers)
-tokenizer = AutoTokenizer.from_pretrained(
-    TOKENIZER_PATH,
-    trust_remote_code=True
-)
+print(f"EmbedPod - By Shinobi: Init ({'GPU' if 'CUDAExecutionProvider' in EP else 'CPU'})...")
 
-# ONNX Runtime session tuning for small GPU pods
-session_options = ort.SessionOptions()
-session_options.enable_mem_pattern = False
-session_options.enable_cpu_mem_arena = False
-session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+# -----------------------------
+# Load tokenizer
+# -----------------------------
+start = time.time()
+TOKENIZER = Tokenizer.from_file(TOKENIZER_FILE)
+print("Tokenizer loaded.")
 
-session = ort.InferenceSession(
-    MODEL_PATH,
-    sess_options=session_options,
-    providers=[
-        "CUDAExecutionProvider",
-        "CPUExecutionProvider"
-    ]
-)
+# -----------------------------
+# Load ONNX model session
+# -----------------------------
+SESSION = ort.InferenceSession(MODEL_FILE, providers=EP)
+print("ONNX model session ready.")
 
-def handler(job):
-    try:
-        job_input = job.get("input", {})
-        text = job_input.get("text")
+print(f"EmbedPod - By Shinobi: Ready. (Load time: {time.time()-start:.2f}s)")
 
-        if not text:
-            return {"error": "N.O.N.O. Missing 'text' input"}
+# -----------------------------
+# Tokenization + input prep
+# -----------------------------
+def tokenize(text: str):
+    encoding = TOKENIZER.encode(text)
+    tokens = {
+        "input_ids": np.array([encoding.ids], dtype=np.int64),
+        "attention_mask": np.array([encoding.attention_mask], dtype=np.int64),
+    }
 
-        inputs = tokenizer(
-            text,
-            padding=True,
-            truncation=True,
-            max_length=2048,
-            return_tensors="np"
-        )
+    # Ensure all required model inputs exist
+    model_inputs = [i.name for i in SESSION.get_inputs()]
+    if "token_type_ids" in model_inputs and "token_type_ids" not in tokens:
+        tokens["token_type_ids"] = np.zeros_like(tokens["input_ids"], dtype=np.int64)
 
-        onnx_inputs = {
-            "input_ids": inputs["input_ids"].astype(np.int64),
-            "attention_mask": inputs["attention_mask"].astype(np.int64)
-        }
+    return tokens
 
-        outputs = session.run(None, onnx_inputs)
-        last_hidden_state = outputs[0]
+# -----------------------------
+# Run embedding
+# -----------------------------
+def run_embedding(text: str):
+    tokens = tokenize(text)
+    return SESSION.run(None, tokens)[0][0].tolist()  # return first batch as list
 
-        attention_mask = onnx_inputs["attention_mask"]
-        mask_expanded = np.expand_dims(attention_mask, axis=-1).astype(np.float32)
+# -----------------------------
+# Command-line / file support
+# -----------------------------
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            payload = json.load(f)
+        text = payload.get("text", "")
+    elif len(sys.argv) > 1:
+        text = sys.argv[1]
+    else:
+        text = "Hello, world!"
 
-        sum_embeddings = np.sum(last_hidden_state * mask_expanded, axis=1)
-        sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
-
-        embeddings = (sum_embeddings / sum_mask).tolist()
-
-        return {"embeddings": embeddings}
-
-    except Exception as e:
-        return {"error": f"D.A.R.K.E.S.T. Failure: {str(e)}"}
-
-runpod.serverless.start({"handler": handler})
+    start = time.time()
+    embeddings = run_embedding(text)
+    elapsed = time.time() - start
+    print(json.dumps({"embeddings": embeddings, "compute_time": elapsed}, ensure_ascii=False))

@@ -1,0 +1,23 @@
+FROM nvidia/cuda:13.1.1-cudnn-runtime-ubuntu24.04
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    USE_GPU=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "numpy<2.0.0" \
+    onnxruntime-gpu \
+    tokenizers \
+    runpod
+
+COPY models/model_q4.onnx /app/model/model_q4.onnx
+COPY models/tokenizer.json /app/model/tokenizer.json
+COPY handler.py /app/handler.py
+
+CMD ["python3", "-u", "handler.py"]

@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    USE_GPU=0
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir --break-system-packages \
+    "numpy<2.0.0" \
+    onnxruntime \
+    tokenizers \
+    runpod
+
+COPY models/model_q4.onnx /app/model/model_q4.onnx
+COPY models/tokenizer.json /app/model/tokenizer.json
+COPY handler.py /app/handler.py
+
+CMD ["python3", "-u", "handler.py"]
